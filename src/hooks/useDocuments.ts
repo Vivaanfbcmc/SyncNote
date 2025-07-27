@@ -1,13 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Document } from '../types';
-import { 
-  getDocuments, 
-  saveDocument, 
-  deleteDocument as removeDocument, 
-  getDocument as fetchDocument,
-  generateId 
-} from '../lib/storage';
 import toast from 'react-hot-toast';
+
+const API_URL = '/api/documents';
 
 export function useDocuments() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -20,7 +15,9 @@ export function useDocuments() {
   const loadDocuments = async () => {
     try {
       setIsLoading(true);
-      const docs = getDocuments();
+      const res = await fetch(API_URL);
+      if (!res.ok) throw new Error('Failed to fetch documents');
+      const docs = await res.json();
       setDocuments(docs);
     } catch (error) {
       toast.error('Failed to load documents');
@@ -32,22 +29,13 @@ export function useDocuments() {
 
   const createDocument = async (title: string): Promise<Document> => {
     try {
-      const newDoc: Document = {
-        _id: generateId(),
-        title,
-        content: '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: {
-          _id: 'current-user',
-          name: 'You',
-          email: 'user@example.com'
-        },
-        collaborators: [],
-        version: 1
-      };
-      
-      saveDocument(newDoc);
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content: '' })
+      });
+      if (!res.ok) throw new Error('Failed to create document');
+      const newDoc = await res.json();
       setDocuments(prev => [newDoc, ...prev]);
       toast.success('Document created successfully!');
       return newDoc;
@@ -59,21 +47,14 @@ export function useDocuments() {
 
   const updateDocument = async (id: string, updates: Partial<Document>) => {
     try {
-      const existingDoc = fetchDocument(id);
-      if (!existingDoc) throw new Error('Document not found');
-      
-      const updatedDoc = {
-        ...existingDoc,
-        ...updates,
-        updatedAt: new Date().toISOString()
-      };
-      
-      saveDocument(updatedDoc);
-      setDocuments(prev => 
-        prev.map(doc => 
-          doc._id === id ? updatedDoc : doc
-        )
-      );
+      const res = await fetch(`${API_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) throw new Error('Failed to update document');
+      const updatedDoc = await res.json();
+      setDocuments(prev => prev.map(doc => doc._id === id ? updatedDoc : doc));
       return updatedDoc;
     } catch (error) {
       toast.error('Failed to update document');
@@ -83,7 +64,8 @@ export function useDocuments() {
 
   const deleteDocument = async (id: string) => {
     try {
-      removeDocument(id);
+      const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete document');
       setDocuments(prev => prev.filter(doc => doc._id !== id));
       toast.success('Document deleted successfully!');
     } catch (error) {
@@ -94,9 +76,9 @@ export function useDocuments() {
 
   const getDocument = async (id: string): Promise<Document> => {
     try {
-      const doc = fetchDocument(id);
-      if (!doc) throw new Error('Document not found');
-      return doc;
+      const res = await fetch(`${API_URL}/${id}`);
+      if (!res.ok) throw new Error('Document not found');
+      return await res.json();
     } catch (error) {
       toast.error('Failed to load document');
       throw error;

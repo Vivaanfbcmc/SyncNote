@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { SignedIn, SignedOut, SignIn, UserButton, useUser } from '@clerk/clerk-react';
+import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { LoginScreen } from './components/LoginScreen';
 import { EditorWorkspace } from './components/EditorWorkspace';
-import { useAuth } from './hooks/useAuth';
 
 function App() {
-  const { user, isLoading, register, login, logout } = useAuth();
+  const { user, isLoaded } = useUser();
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -13,7 +12,7 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  if (isLoading || !isReady) {
+  if (!isLoaded || !isReady) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <div className="relative">
@@ -24,39 +23,35 @@ function App() {
     );
   }
 
-  if (!user) {
-    return <LoginScreen onLogin={login} onRegister={register} />;
-  }
-
   return (
     <>
-      <EditorWorkspace user={user} onLogout={logout} />
-      <Toaster 
-        position="top-right"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: 'rgba(15, 23, 42, 0.95)',
-            color: '#f1f5f9',
-            border: '1px solid rgba(148, 163, 184, 0.2)',
-            borderRadius: '12px',
-            fontSize: '14px',
-            backdropFilter: 'blur(12px)',
-          },
-          success: {
-            iconTheme: {
-              primary: '#10b981',
-              secondary: '#f1f5f9',
-            },
-          },
-          error: {
-            iconTheme: {
-              primary: '#ef4444',
-              secondary: '#f1f5f9',
-            },
-          },
-        }}
-      />
+      <SignedOut>
+        <SignIn routing="hash" />
+      </SignedOut>
+      <SignedIn>
+        {user && (
+          <>
+            <div className="absolute top-4 right-4 z-50">
+              <UserButton afterSignOutUrl="/" />
+            </div>
+            <EditorWorkspace user={{
+              id: user.id,
+              name: user.fullName || user.username || user.primaryEmailAddress?.emailAddress || 'User',
+              color: '#8b5cf6',
+            }} onLogout={() => {}} />
+            <Toaster 
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: 'rgba(15, 23, 42, 0.95)',
+                  color: '#f1f5f9',
+                },
+              }}
+            />
+          </>
+        )}
+      </SignedIn>
     </>
   );
 }
